@@ -26,11 +26,47 @@ def numerical_gradient(f, x, eps=1e-5):
             it.iternext()
         return grads
 
-# Step 2 - gradient_check (not yet solved)
-# TODO: implement
+# Step 2 - gradient_check
+def gradient_check(analytic_grad, numeric_grad, tol=1e-5):
+    # TODO: Return max relative error between analytic and numeric gradients.
+    diff = np.abs(analytic_grad - numeric_grad)
+    denom = np.maximum(np.maximum(np.abs(analytic_grad),np.abs(numeric_grad)), tol)
+    res = diff/denom
+    return np.max(res)
 
-# Step 3 - make_dense (not yet solved)
-# TODO: implement
+# Step 3 - make_dense
+def make_dense(in_dim, out_dim, weight_init_fn):
+    """Create a fully connected layer.
+
+    Inputs:
+      in_dim: int, input feature size
+      out_dim: int, output feature size
+      weight_init_fn: callable(in_dim, out_dim) -> (W, b)
+
+    Returns layer dict with keys:
+      params: {'W': (in_dim, out_dim), 'b': (out_dim,)}
+      forward(x) -> (y, cache) with y shape (batch, out_dim)
+      backward(dout, cache) -> (dx, grads) with grads {'W', 'b'}
+        Analytic dx/dW/db must match numerical_gradient via gradient_check.
+    """
+    # TODO: your approach here
+    W, b = weight_init_fn(in_dim, out_dim)
+    params = {'W':W, 'b':b}
+
+    def forward(x):
+      y = np.dot(x, params['W']) + params['b'] 
+      cache = x
+      return y, cache
+    
+    def backward(dout, cache):
+      x = cache
+      dx = np.dot(dout, params['W'].T)
+      dW = np.dot(x.T, dout)
+      db = np.sum(dout, axis = 0)
+      grads = {'W':dW, 'b':db}
+      return dx, grads
+
+    return {'params':params, 'forward':forward, 'backward': backward}
 
 # Step 4 - make_activation (not yet solved)
 # TODO: implement
