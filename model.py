@@ -239,8 +239,77 @@ def forward_backward(model, loss_fn, x, y):
     dx, param_grads = backward(d_logits, caches)
     return float(loss), param_grads
 
-# Step 9 - make_optimizer (not yet solved)
-# TODO: implement
+# Step 9 - make_optimizer
+def make_optimizer(params, lr=1e-2, kind='sgd'):
+    """Build an optimizer that updates params in place.
+
+    Inputs:
+      params: arrays, possibly nested in lists/dicts (or dict of arrays) to optimize
+      lr: float learning rate
+      kind: str algorithm name (e.g. 'sgd')
+
+    Returns:
+      dict with key 'step'. step(grads) applies one in-place update
+      using grads structured like params. Parameter shapes must stay
+      unchanged. Repeated steps must reduce a simple convex objective
+      within a modest fixed budget and keep values finite.
+    """
+    # TODO: your approach here
+    def _flatten(container, prefix = ""):
+      if isinstance(container, dict):
+        for key, val in container.items():
+          yield from _flatten(val, f"{prefix}_{key}" if prefix else str(k))
+      elif isinstance(container, list):
+        for idx, val in enumerate(container):
+          yield from _flatten(val, f"{prefix}_{idx}" if prefix else str(idx))
+      elif isinstance(container, np.ndarray):
+        yield prefix, container
+
+    flat_params = dict(_flatten(params))
+
+    state = {}
+
+    if kind == 'momentum':
+      state['v'] = {k:np.zeros_like(p) for k, p in flat_params.items()}
+      state['beta'] = 0.9
+    elif kind == 'adam':
+      state['t'] = 0
+      state['m'] = {k:np.zeros_like(p) for k, p in flat_params.items()}
+      state['v'] = {k:np.zeros_like(p) for k, p in flat_params.items()}
+      state['beta1'] = 0.9
+      state['beta2'] = 0.999
+      state['eps'] = 1e-8
+    
+    def step(grads):
+      flat_grads = dict(_flatten(grads))
+
+      if kind == 'sgd':
+        for k, param in flat_params.items():
+          if k in flat_grads and flat_grads[k] is not None:
+            param -= lr*flat_grads[k]
+      elif kind == 'momentum':
+        beta = state['beta']
+        for k, param in flat_params.items():
+          if k in flat_grads and flat_grads[k] is not None:
+            state['v'][k] = beta * state['v'][k] + flat_grads[k]
+            param -= lr*state['v'][k]
+      elif kind == 'adam':
+        state['t'] += 1
+        t = state['t']
+        b1, b2, eps = state['beta1'], state['beta2'], state['eps']
+        for k, param in flat_params.items():
+          if k in flat_grads and flat_grads[k] is not None:
+            g = flat_grads[k]
+            state['m'][k] = b1 * state['m'][k] + (1.0 - b1) * g
+            state['v'][k] = b2 * state['v'][k] + (1.0 - b2) * (g ** 2)
+            m_hat = state['m'][k] / (1.0 - b1 ** t)
+            v_hat = state['v'][k] / (1.0 - b2 ** t)
+            param -= lr * m_hat / (np.sqrt(v_hat) + eps)
+      else:
+            raise ValueError(f"Unknown optimizer variant: {kind}")
+
+
+    return {'step':step}
 
 # Step 10 - train_step (not yet solved)
 # TODO: implement
