@@ -392,7 +392,7 @@ def design_network(input_dim, num_classes, seed=0):
     """
     # TODO: your approach here
     rng = np.random.default_rng(seed)
-    total_samples = 5000
+    total_samples = 1000
     samples_per_class = total_samples // num_classes
     X_list = []
     y_list = []
@@ -411,8 +411,8 @@ def design_network(input_dim, num_classes, seed=0):
     shuffled_indices = rng.permutation(len(y_all))
     X_all = X_all[shuffled_indices]
     y_all = y_all[shuffled_indices]
-    X_train, X_eval = X_all[:4500], X_all[4500:]
-    y_train, y_eval = y_all[:4500], y_all[4500:]
+    X_train, X_eval = X_all[:800], X_all[800:]
+    y_train, y_eval = y_all[:800], y_all[800:]
 
     hidden_dim = 128
     init_fn = lambda in_dim,out_dim: initialize_weights(in_dim, out_dim, scheme = "he")
@@ -426,7 +426,7 @@ def design_network(input_dim, num_classes, seed=0):
     loss_fn = make_loss("cross_entropy")
     optimizer = make_optimizer(model['params'], lr=0.01, kind='adam')
 
-    _ = train(model, loss_fn, optimizer, X_train, y_train, epochs = 300, batch_size = 50, seed = seed)
+    _ = train(model, loss_fn, optimizer, X_train, y_train, epochs = 30, batch_size = 50, seed = seed)
 
     eval_logits, _ = model['forward'](X_eval)
     predictions = np.argmax(eval_logits, axis = 1)
