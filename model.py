@@ -327,7 +327,7 @@ def train_step(model, loss_fn, optimizer, x_batch, y_batch):
       Model parameters are updated in place; shapes unchanged and values finite.
     """
     # TODO: your approach here
-    loss , param_grads = forward_backward(model, loss_fn, x, y)
+    loss , param_grads = forward_backward(model, loss_fn, x_batch, y_batch)
     optimizer['step'](param_grads)
     return loss
 
@@ -371,8 +371,74 @@ def train(model, loss_fn, optimizer, x, y, epochs, batch_size, seed=0):
 
     return history
 
-# Step 12 - design_network (not yet solved)
-# TODO: implement
+# Step 12 - design_network
+def design_network(input_dim, num_classes, seed=0):
+    """Design and train a net that solves a nonlinear classification task.
+
+    Inputs:
+      input_dim: int, feature dimension
+      num_classes: int, number of classes
+      seed: int, RNG seed for reproducibility
+
+    Returns:
+      model: trained sequential model (forward/backward/params)
+      metrics: dict with
+        'accuracy': float >= 0.90 on an evaluation set,
+        'x': np.ndarray (N, input_dim) eval features (N >= 50),
+        'y': np.ndarray (N,) integer eval labels.
+      The eval set (x, y) must not be linearly separable to high accuracy
+      (< 0.82 for a linear classifier), and the model's true accuracy on
+      it must match metrics['accuracy'] and be >= 0.90.
+    """
+    # TODO: your approach here
+    rng = np.random.default_rng(seed)
+    total_samples = 5000
+    samples_per_class = total_samples // num_classes
+    X_list = []
+    y_list = []
+
+    for c in range(num_classes):
+      normal_vectors = rng.normal(0,1, size = (samples_per_class, input_dim))
+      norms = np.linalg.norm( normal_vectors, axis = 1, keepdims = True)
+      norms = np.where(norms == 0, 1e-5, norms)
+      directions = normal_vectors / norms 
+      radius = (c + 1) * 2.0 + rng.normal(0, 0.25, size=(samples_per_class, 1))
+      X_list.append(directions * radius)
+      y_list.append(np.full(samples_per_class, c))
+
+    X_all = np.vstack(X_list)
+    y_all = np.hstack(y_list)
+    shuffled_indices = rng.permutation(len(y_all))
+    X_all = X_all[shuffled_indices]
+    y_all = y_all[shuffled_indices]
+    X_train, X_eval = X_all[:4500], X_all[4500:]
+    y_train, y_eval = y_all[:4500], y_all[4500:]
+
+    hidden_dim = 128
+    init_fn = lambda in_dim,out_dim: initialize_weights(in_dim, out_dim, scheme = "he")
+    layer1 = make_dense(input_dim, hidden_dim, init_fn)
+    act1   = make_activation('relu')
+    layer2 = make_dense(hidden_dim, hidden_dim, init_fn)
+    act2   = make_activation('relu')
+    layer3 = make_dense(hidden_dim, num_classes, init_fn)
+    model = make_sequential([layer1, act1, layer2, act2, layer3])
+
+    loss_fn = make_loss("cross_entropy")
+    optimizer = make_optimizer(model['params'], lr=0.01, kind='adam')
+
+    _ = train(model, loss_fn, optimizer, X_train, y_train, epochs = 300, batch_size = 50, seed = seed)
+
+    eval_logits, _ = model['forward'](X_eval)
+    predictions = np.argmax(eval_logits, axis = 1)
+    accuracy = float(np.mean(predictions == y_eval))
+
+    metrics = {
+        'accuracy': accuracy,
+        'x': X_eval,
+        'y': y_eval
+    }
+
+    return model, metrics
 
 # Step 13 - improve_generalization (not yet solved)
 # TODO: implement
