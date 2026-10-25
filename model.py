@@ -68,8 +68,57 @@ def make_dense(in_dim, out_dim, weight_init_fn):
 
     return {'params':params, 'forward':forward, 'backward': backward}
 
-# Step 4 - make_activation (not yet solved)
-# TODO: implement
+# Step 4 - make_activation
+def make_activation(kind='relu'):
+    """Create a genuinely nonlinear elementwise activation layer.
+
+    Args:
+        kind: str nonlinearity name. Default 'relu' must implement ReLU
+              (zero negatives, pass non-negatives). Other kinds optional.
+
+    Returns:
+        Layer dict with:
+          forward(x) -> (y, cache)
+            x, y: np.ndarray shape (batch, dim)
+          backward(dout, cache) -> (dx, {})
+            dout, dx: np.ndarray shape (batch, dim)
+            param grad dict is always empty (no learnable params)
+
+    Must be elementwise and non-affine; analytic dx must match
+    numerical_gradient / gradient_check.
+    """
+    # TODO: your approach here
+    def forward(x):
+      cache = x
+      if kind == 'relu':
+        y = np.maximum(0,x)
+      elif kind == 'sigmoid':
+        y = 1.0/(1.0 + np.exp(-np.clip(x, -500, 500)))
+      elif kind == 'tanh':
+        y = np.tanh(x)
+      else:
+        raise ValueError(f"Unknown activation type: {kind}") 
+      return y, cache
+  
+    def backward(dout, cache):
+      x = cache
+      if kind == 'relu':
+        dx = dout*(x > 0)
+      elif kind == 'sigmoid':
+        s = 1.0/(1.0 + np.exp(-np.clip(x, -500, 500)))
+        dx = dout*(s)*(1 - s)
+      elif kind == 'tanh':
+        t = np.tanh(x)
+        dx = dout*(1.0 - t**2)
+      else:
+        raise ValueError(f"Unknown activation type: {kind}")
+      grads = {}
+      return dx, grads
+    return {
+      'params':{},
+      'forward':forward,
+      'backward':backward
+          }
 
 # Step 5 - initialize_weights (not yet solved)
 # TODO: implement
