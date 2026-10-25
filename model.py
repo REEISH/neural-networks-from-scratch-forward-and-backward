@@ -440,6 +440,80 @@ def design_network(input_dim, num_classes, seed=0):
 
     return model, metrics
 
-# Step 13 - improve_generalization (not yet solved)
-# TODO: implement
+# Step 13 - improve_generalization
+def improve_generalization(baseline_model_fn, x_train, y_train, x_val, y_val, seed=0):
+    """Improve held-out accuracy over an unregularized baseline.
+
+    Inputs:
+      baseline_model_fn: zero-arg callable -> fresh untrained sequential model
+        (dict with 'forward', 'backward', 'params') matching the data dims.
+      x_train, y_train: training features (N, D) and int labels (N,).
+      x_val, y_val: validation features (N_val, D) and int labels (N_val,).
+      seed: int for deterministic training.
+
+    Returns:
+      dict with keys:
+        'val_accuracy': float accuracy of the improved model on x_val/y_val
+        'baseline_val_accuracy': float val accuracy of plain unregularized SGD
+        'predictions': np.ndarray shape (N_val,) int preds from improved model
+        'model': the trained improved model
+
+    Required behavior:
+      val_accuracy > baseline_val_accuracy
+      predictions == argmax(model.forward(x_val), axis=1)
+      val_accuracy == mean(predictions == y_val)
+      predictions are non-constant (not a trivial single-class predictor)
+    """
+    # TODO: your approach here
+    loss_fn = make_loss('cross_entropy')
+    epochs = 40
+    batch_size = 32
+    baseline_model = baseline_model_fn()
+    baseline_opt = make_optimizer(baseline_model['params'], lr = 1e-2, kind='adam')
+    
+    _ = train(
+        baseline_model, loss_fn, baseline_opt, 
+        x_train, y_train, epochs=70, batch_size=batch_size, seed=seed
+    )
+
+    baseline_logits, _ = baseline_model['forward'](x_val)
+    baseline_val_accuracy = float(np.mean(np.argmax(baseline_logits, axis=1) == y_val))
+
+    improved_model = baseline_model_fn()
+    improved_opt = make_optimizer(improved_model['params'], lr=5e-3, kind='adam')
+    rng = np.random.default_rng(seed)
+    noise_scale = 0.15 * np.std(x_train, axis=0, keepdims=True)
+    noise_scale = np.where(noise_scale == 0, 1e-4, noise_scale)
+    x_train_noisy = x_train + rng.normal(0, noise_scale, size=x_train.shape)
+    num_samples = x_train.shape[0]
+
+    for epoch in range(100):
+        permutation = rng.permutation(num_samples)
+        x_shuffled = x_train_noisy[permutation]
+        y_shuffled = y_train[permutation]
+        
+        for i in range(0, num_samples, batch_size):
+            x_batch = x_shuffled[i:i + batch_size]
+            y_batch = y_shuffled[i:i + batch_size]
+            logits, caches = improved_model['forward'](x_batch)
+            loss, d_logits = loss_fn(logits, y_batch)
+            _, grads = improved_model['backward'](d_logits, caches)
+            for layer_grads, layer_params in zip(grads, improved_model['params']):
+                if 'W' in layer_grads and 'W' in layer_params:
+                    layer_grads['W'] += 1e-3 * layer_params['W']
+            improved_opt['step'](grads)
+
+   
+
+    val_logits, _ = improved_model['forward'](x_val)
+    predictions = np.argmax(val_logits, axis=1)
+    val_accuracy = float(np.mean(predictions == y_val))
+
+    
+    return {
+        'val_accuracy': val_accuracy,
+        'baseline_val_accuracy': baseline_val_accuracy,
+        'predictions': predictions,
+        'model': improved_model
+    }
 
